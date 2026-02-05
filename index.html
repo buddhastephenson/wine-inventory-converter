@@ -1,0 +1,2510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wine Inventory Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --wine-deep: #4a1a1a;
+            --wine-rich: #7d2828;
+            --wine-light: #b85c5c;
+            --cream: #f8f5f0;
+            --gold: #d4af37;
+            --charcoal: #2a2a2a;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: linear-gradient(135deg, var(--cream) 0%, #e8dfd0 100%);
+            color: var(--charcoal);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(212, 175, 55, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(74, 26, 26, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 4rem;
+            font-weight: 700;
+            color: var(--wine-deep);
+            margin-bottom: 16px;
+            letter-spacing: -2px;
+            text-shadow: 2px 2px 0 rgba(212, 175, 55, 0.2);
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--wine-rich);
+            font-weight: 400;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 
+                0 20px 60px rgba(74, 26, 26, 0.15),
+                0 0 0 1px rgba(212, 175, 55, 0.1);
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .main-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--wine-deep), var(--gold), var(--wine-rich));
+        }
+
+        .supplier-selector {
+            margin-bottom: 40px;
+        }
+
+        .supplier-selector label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--wine-deep);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        select {
+            width: 100%;
+            padding: 16px 20px;
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            border: 2px solid var(--wine-light);
+            border-radius: 12px;
+            background: var(--cream);
+            color: var(--charcoal);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a1a1a' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 20px center;
+        }
+
+        select:hover {
+            border-color: var(--wine-rich);
+            background: white;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--wine-deep);
+            box-shadow: 0 0 0 4px rgba(74, 26, 26, 0.1);
+        }
+
+        .upload-zone {
+            border: 3px dashed var(--wine-light);
+            border-radius: 16px;
+            padding: 60px 40px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(248, 245, 240, 0.5), rgba(232, 223, 208, 0.5));
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--wine-rich);
+            background: linear-gradient(135deg, rgba(248, 245, 240, 0.9), rgba(232, 223, 208, 0.9));
+            transform: translateY(-4px);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--gold);
+            background: rgba(212, 175, 55, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.6;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: var(--wine-deep);
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .upload-subtext {
+            font-size: 0.9rem;
+            color: var(--wine-rich);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-info {
+            background: var(--cream);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border-left: 4px solid var(--gold);
+            animation: slideInRight 0.4s ease-out;
+        }
+
+        .file-name {
+            font-weight: 700;
+            color: var(--wine-deep);
+            margin-bottom: 4px;
+        }
+
+        .btn {
+            padding: 18px 40px;
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--wine-deep), var(--wine-rich));
+            color: white;
+            box-shadow: 0 4px 15px rgba(74, 26, 26, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 26, 26, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, var(--gold), #c49d2e);
+            color: var(--wine-deep);
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+            margin-top: 20px;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .results {
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, rgba(74, 26, 26, 0.03), rgba(212, 175, 55, 0.03));
+            border-radius: 12px;
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid var(--wine-rich);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--wine-rich);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--wine-deep);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(212, 175, 55, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--wine-rich), var(--gold));
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -100% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .status-message {
+            padding: 16px 24px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-size: 0.95rem;
+        }
+
+        .status-success {
+            background: rgba(46, 125, 50, 0.1);
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .status-error {
+            background: rgba(211, 47, 47, 0.1);
+            color: #d32f2f;
+            border-left: 4px solid #d32f2f;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            padding: 30px;
+            color: var(--wine-rich);
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Wine Inventory Converter</h1>
+            <p class="subtitle">Transform supplier spreadsheets</p>
+            <div style="margin-top: 20px;">
+                <button class="btn-settings" id="settingsBtn" style="background: transparent; border: 2px solid var(--wine-rich); color: var(--wine-rich); padding: 10px 20px; font-size: 0.9rem;">
+                    ⚙️ Settings
+                </button>
+                <span style="margin-left: 15px; font-size: 0.85rem; color: var(--wine-rich); opacity: 0.7;">
+                    Press <kbd style="background: var(--cream); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--wine-light);">?</kbd> for shortcuts
+                </span>
+            </div>
+        </header>
+
+        <div class="main-card">
+            <div class="supplier-selector">
+                <label for="supplier">Select Supplier</label>
+                <select id="supplier">
+                    <option value="zrs">ZRS National Pricebooks</option>
+                    <option value="zrs-spirits">ZRS Spirits</option>
+                    <option value="bowler">David Bowler Wine</option>
+                    <option value="vina">Selections de la Viña</option>
+                    <option value="vinum">Vinum USA</option>
+                    <option value="dressner">Louis/Dressner Selections</option>
+                    <option value="bonvivant">Bon Vivant Imports</option>
+                    <option value="indigenous">Indigenous Selections</option>
+                    <option value="skurnik">Skurnik Wines</option>
+                    <option value="dns">DNS Wines</option>
+                    <option value="valkyrie">Valkyrie Selections</option>
+                    <option value="diamond">Diamond Wine Importers</option>
+                    <option value="diamond-library">Diamond Library Pre-Sale</option>
+                    <option value="dallaterra">Dalla Terra</option>
+                    <option value="custom" disabled>+ Add Custom Parser (Coming Soon)</option>
+                </select>
+            </div>
+
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text">Drop your spreadsheet(s) here</div>
+                <div class="upload-subtext">or click to browse (.xlsx files) • Supports batch processing</div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" multiple>
+            </div>
+
+            <div id="fileInfo" style="display: none;"></div>
+
+            <div style="text-align: center;">
+                <button class="btn btn-primary" id="convertBtn" disabled>
+                    Convert to Clean Format
+                </button>
+            </div>
+
+            <div id="results" style="display: none;"></div>
+        </div>
+
+        <footer>
+            Built for efficient wine inventory management
+        </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; animation: fadeIn 0.3s;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 20px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <h2 style="font-family: 'Playfair Display', serif; color: var(--wine-deep); margin-bottom: 30px;">⚙️ Settings</h2>
+            
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; font-weight: 700; color: var(--wine-deep); margin-bottom: 10px; font-size: 0.9rem;">
+                    Remember Last Supplier
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="rememberSupplier" checked style="margin-right: 10px; width: 20px; height: 20px; cursor: pointer;">
+                    <span>Automatically select last used supplier</span>
+                </label>
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; font-weight: 700; color: var(--wine-deep); margin-bottom: 10px; font-size: 0.9rem;">
+                    Auto-convert on Upload
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="autoConvert" style="margin-right: 10px; width: 20px; height: 20px; cursor: pointer;">
+                    <span>Start conversion immediately after file upload</span>
+                </label>
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; font-weight: 700; color: var(--wine-deep); margin-bottom: 10px; font-size: 0.9rem;">
+                    Default Filename Prefix
+                </label>
+                <input type="text" id="filenamePrefix" placeholder="e.g., Clean_Inventory" style="width: 100%; padding: 12px; border: 2px solid var(--wine-light); border-radius: 8px; font-family: 'Space Mono', monospace;">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 30px;">
+                <button class="btn btn-primary" id="saveSettings" style="flex: 1;">Save Settings</button>
+                <button class="btn" id="closeSettings" style="flex: 1; background: var(--cream); color: var(--wine-deep);">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcutsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; animation: fadeIn 0.3s;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 20px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <h2 style="font-family: 'Playfair Display', serif; color: var(--wine-deep); margin-bottom: 30px;">⌨️ Keyboard Shortcuts</h2>
+            
+            <div style="display: grid; gap: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--cream); border-radius: 8px;">
+                    <span>Upload File</span>
+                    <kbd style="background: white; padding: 5px 12px; border-radius: 4px; border: 2px solid var(--wine-light); font-weight: 700;">Ctrl + U</kbd>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--cream); border-radius: 8px;">
+                    <span>Convert Files</span>
+                    <kbd style="background: white; padding: 5px 12px; border-radius: 4px; border: 2px solid var(--wine-light); font-weight: 700;">Ctrl + Enter</kbd>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--cream); border-radius: 8px;">
+                    <span>Open Settings</span>
+                    <kbd style="background: white; padding: 5px 12px; border-radius: 4px; border: 2px solid var(--wine-light); font-weight: 700;">Ctrl + ,</kbd>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--cream); border-radius: 8px;">
+                    <span>Show Shortcuts</span>
+                    <kbd style="background: white; padding: 5px 12px; border-radius: 4px; border: 2px solid var(--wine-light); font-weight: 700;">?</kbd>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--cream); border-radius: 8px;">
+                    <span>Close Modal</span>
+                    <kbd style="background: white; padding: 5px 12px; border-radius: 4px; border: 2px solid var(--wine-light); font-weight: 700;">Esc</kbd>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="closeShortcuts" style="width: 100%; margin-top: 30px;">Got it!</button>
+        </div>
+    </div>
+
+    <script>
+        // Settings Management
+        const SETTINGS_KEY = 'wineConverterSettings';
+        
+        function loadSettings() {
+            const saved = localStorage.getItem(SETTINGS_KEY);
+            return saved ? JSON.parse(saved) : {
+                rememberSupplier: true,
+                autoConvert: false,
+                filenamePrefix: 'Clean_Inventory',
+                lastSupplier: 'zrs'
+            };
+        }
+
+        function saveSettings(settings) {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+
+        let settings = loadSettings();
+
+        // Apply saved settings on load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (settings.rememberSupplier && settings.lastSupplier) {
+                supplierSelect.value = settings.lastSupplier;
+            }
+            document.getElementById('rememberSupplier').checked = settings.rememberSupplier;
+            document.getElementById('autoConvert').checked = settings.autoConvert;
+            document.getElementById('filenamePrefix').value = settings.filenamePrefix;
+        });
+
+        // Settings Modal
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const saveSettingsBtn = document.getElementById('saveSettings');
+        const closeSettingsBtn = document.getElementById('closeSettings');
+
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'block';
+        });
+
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+
+        saveSettingsBtn.addEventListener('click', () => {
+            settings.rememberSupplier = document.getElementById('rememberSupplier').checked;
+            settings.autoConvert = document.getElementById('autoConvert').checked;
+            settings.filenamePrefix = document.getElementById('filenamePrefix').value;
+            saveSettings(settings);
+            settingsModal.style.display = 'none';
+            
+            // Show confirmation
+            const msg = document.createElement('div');
+            msg.textContent = '✓ Settings saved!';
+            msg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2e7d32; color: white; padding: 15px 25px; border-radius: 8px; z-index: 2000; animation: slideInRight 0.3s;';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 2000);
+        });
+
+        // Shortcuts Modal
+        const shortcutsModal = document.getElementById('shortcutsModal');
+        const closeShortcutsBtn = document.getElementById('closeShortcuts');
+
+        closeShortcutsBtn.addEventListener('click', () => {
+            shortcutsModal.style.display = 'none';
+        });
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Escape closes any modal
+            if (e.key === 'Escape') {
+                settingsModal.style.display = 'none';
+                shortcutsModal.style.display = 'none';
+                return;
+            }
+
+            // ? shows shortcuts
+            if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+                shortcutsModal.style.display = 'block';
+                return;
+            }
+
+            // Ctrl/Cmd + U opens file picker
+            if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+                e.preventDefault();
+                fileInput.click();
+                return;
+            }
+
+            // Ctrl/Cmd + Enter converts
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                if (!convertBtn.disabled) {
+                    convertBtn.click();
+                }
+                return;
+            }
+
+            // Ctrl/Cmd + , opens settings
+            if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+                e.preventDefault();
+                settingsModal.style.display = 'block';
+                return;
+            }
+        });
+
+        // Close modals when clicking outside
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                settingsModal.style.display = 'none';
+            }
+        });
+
+        shortcutsModal.addEventListener('click', (e) => {
+            if (e.target === shortcutsModal) {
+                shortcutsModal.style.display = 'none';
+            }
+        });
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const convertBtn = document.getElementById('convertBtn');
+        const results = document.getElementById('results');
+        const supplierSelect = document.getElementById('supplier');
+
+        let uploadedFiles = [];
+        let workbooks = [];
+
+        // Save last used supplier
+        supplierSelect.addEventListener('change', () => {
+            if (settings.rememberSupplier) {
+                settings.lastSupplier = supplierSelect.value;
+                saveSettings(settings);
+            }
+        });
+
+        // Upload zone interactions
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFiles(Array.from(e.target.files));
+            }
+        });
+
+        function handleFiles(files) {
+            uploadedFiles = files.filter(f => f.name.match(/\.(xlsx|xls)$/));
+            
+            if (uploadedFiles.length === 0) {
+                alert('Please upload Excel files (.xlsx or .xls)');
+                return;
+            }
+
+            const fileNames = uploadedFiles.map(f => f.name).join(', ');
+            const totalSize = uploadedFiles.reduce((sum, f) => sum + f.size, 0);
+            
+            fileInfo.innerHTML = `
+                <div class="file-name">📄 ${uploadedFiles.length} file(s) selected</div>
+                <div class="upload-subtext">${fileNames.substring(0, 100)}${fileNames.length > 100 ? '...' : ''}</div>
+                <div class="upload-subtext">Total size: ${(totalSize / 1024).toFixed(2)} KB</div>
+            `;
+            fileInfo.style.display = 'block';
+            convertBtn.disabled = false;
+
+            // Load all files
+            workbooks = [];
+            let loaded = 0;
+            
+            uploadedFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    workbooks.push({
+                        name: file.name,
+                        workbook: XLSX.read(data, { type: 'array' })
+                    });
+                    loaded++;
+                    
+                    // Auto-convert if enabled and all files loaded
+                    if (loaded === uploadedFiles.length && settings.autoConvert) {
+                        setTimeout(() => convertBtn.click(), 500);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function handleFile(file) {
+            handleFiles([file]);
+        }
+
+        convertBtn.addEventListener('click', async () => {
+            if (!workbook) return;
+
+            convertBtn.disabled = true;
+            convertBtn.textContent = 'Converting...';
+
+            const supplier = supplierSelect.value;
+            
+            try {
+                let cleanData;
+                if (supplier === 'zrs') {
+                    cleanData = parseZRS(workbook);
+                } else if (supplier === 'zrs-spirits') {
+                    cleanData = parseZRSSpirits(workbook);
+                } else if (supplier === 'bowler') {
+                    cleanData = parseBowler(workbook);
+                } else if (supplier === 'vina') {
+                    cleanData = parseVina(workbook);
+                } else if (supplier === 'vinum') {
+                    cleanData = parseVinum(workbook);
+                } else if (supplier === 'dressner') {
+                    cleanData = parseDressner(workbook);
+                } else if (supplier === 'bonvivant') {
+                    cleanData = parseBonVivant(workbook);
+                } else if (supplier === 'indigenous') {
+                    cleanData = parseIndigenous(workbook);
+                } else if (supplier === 'skurnik') {
+                    cleanData = parseSkurnik(workbook);
+                } else if (supplier === 'dns') {
+                    cleanData = parseDNS(workbook);
+                } else if (supplier === 'valkyrie') {
+                    cleanData = parseValkyrie(workbook);
+                } else if (supplier === 'diamond') {
+                    cleanData = parseDiamond(workbook);
+                } else if (supplier === 'diamond-library') {
+                    cleanData = parseDiamondLibrary(workbook);
+                } else if (supplier === 'dallaterra') {
+                    cleanData = parseDallaTerra(workbook);
+                } else {
+                    throw new Error('Supplier parser not implemented');
+                }
+
+                displayResults(cleanData);
+                createDownloadButton(cleanData);
+
+                convertBtn.textContent = 'Converted Successfully!';
+                setTimeout(() => {
+                    convertBtn.textContent = 'Convert to Clean Format';
+                    convertBtn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="status-message status-error">
+                        ❌ Error: ${error.message}
+                    </div>
+                `;
+                results.style.display = 'block';
+                
+                convertBtn.textContent = 'Convert to Clean Format';
+                convertBtn.disabled = false;
+            }
+        });
+
+        function parseZRS(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+            const countries = ['FRANCE', 'ITALY', 'SPAIN', 'PORTUGAL', 'GERMANY', 'AUSTRIA', 
+                             'GREECE', 'JAPAN', 'SWITZERLAND', 'CROATIA', 'SLOVENIA', 
+                             'HUNGARY', 'SLOVAKIA', 'ARMENIA', 'MEXICO', 'USA'];
+
+            const frenchRegions = ['ALSACE', 'ARDECHE', 'AUVERGNE', 'BANDOL', 'BEAUJOLAIS', 
+                                  'BORDEAUX', 'BUGEY', 'BURGUNDY', 'CHAMPAGNE', 'CORSICA',
+                                  'GAILLAC', 'GARD', 'HERAULT', 'LANGUEDOC', 'MACONNAIS',
+                                  'RHONE', 'SAVOIE', 'YONNE', 'BANYULS-SER-MER', 'COTES CATALANES'];
+
+            const italianRegions = ['ABRUZZO', 'CAMPANIA', 'EMILIA-ROMAGNA', 'FRIULI-VENEZIA-GIULIA',
+                                   'LAZIO', 'MOUNT ETNA', 'PANTELLERIA', 'TUSCANY'];
+
+            const austrianRegions = ['GOLS', 'STYRIA', 'WEINVIERTEL'];
+
+            const otherRegions = {
+                'BALATON': 'HUNGARY',
+                'BRATISLAVA': 'SLOVAKIA',
+                'MORAVSKE': 'SLOVAKIA',
+                'NITRA': 'SLOVAKIA',
+                'TRNAVA': 'SLOVAKIA',
+                'CROATIAN UPLANDS': 'CROATIA',
+                'DALMATIA': 'CROATIA',
+                'ISTRIA': 'CROATIA',
+                'POSAVJE': 'SLOVENIA',
+                'VIPAVA VALLEY': 'SLOVENIA',
+                'VAYOTS DZOR': 'ARMENIA',
+                'PELLA': 'GREECE',
+                'SAMOS': 'GREECE',
+                'VALAIS': 'SWITZERLAND'
+            };
+
+            let currentCountry = '';
+            let currentRegion = '';
+            let currentProducer = '';
+            const cleanData = [];
+
+            for (let row of rawData) {
+                const col0 = row[0] ? String(row[0]).trim() : '';
+                const col1 = row[1] ? String(row[1]).trim() : '';
+                const col2 = row[2] ? String(row[2]).trim() : '';
+
+                const isSKU = /^(ZRS-|ZR-|FIFI-|PAT-|\d{2}-\d{4})/.test(col0);
+
+                if (isSKU && col1) {
+                    // Detect product type
+                    const productNameLower = col1.toLowerCase();
+                    let productType = 'Wine';
+                    
+                    if (/vermouth|gin|vodka|whisky|whiskey|rum|brandy|cognac|armagnac|grappa|eau de vie|spirits/.test(productNameLower)) {
+                        productType = 'Spirits';
+                    } else if (/non-alc|nonalc|non alcoholic|alcohol-free|dealcoholized/.test(productNameLower)) {
+                        productType = 'Non-Alcoholic';
+                    }
+
+                    const bottleSizeStr = row[5] ? String(row[5]) : '';
+                    const bottleSizeMatch = bottleSizeStr.match(/(\d+)ml/);
+                    const bottleSizeML = bottleSizeMatch ? parseInt(bottleSizeMatch[1]) : '';
+
+                    const stockValue = row[8];
+                    const inStock = stockValue === 1 ? 'In Stock' : 'Out of Stock';
+
+                    cleanData.push({
+                        'Product Type': productType,
+                        'Country': currentCountry,
+                        'Region': currentRegion,
+                        'Producer/Brand': currentProducer,
+                        'SKU': col0,
+                        'Product Name': col1,
+                        'Grapes/Variety': col2,
+                        'Vintage': row[3] || '',
+                        'Case Size': row[4] || '',
+                        'Bottle Size (ml)': bottleSizeML,
+                        'Price': row[6] || '',
+                        'Stock Status': inStock
+                    });
+                } else if (col0 && !col1 && !col2) {
+                    const headerText = col0;
+
+                    if (/🌱|🐂|\(/.test(headerText)) {
+                        currentProducer = headerText;
+                    } else if (countries.includes(headerText)) {
+                        currentCountry = headerText;
+                        currentRegion = '';
+                        currentProducer = '';
+                    } else if (frenchRegions.includes(headerText)) {
+                        currentCountry = 'FRANCE';
+                        currentRegion = headerText;
+                        currentProducer = '';
+                    } else if (italianRegions.includes(headerText)) {
+                        currentCountry = 'ITALY';
+                        currentRegion = headerText;
+                        currentProducer = '';
+                    } else if (austrianRegions.includes(headerText)) {
+                        currentCountry = 'AUSTRIA';
+                        currentRegion = headerText;
+                        currentProducer = '';
+                    } else if (otherRegions[headerText]) {
+                        currentCountry = otherRegions[headerText];
+                        currentRegion = headerText;
+                        currentProducer = '';
+                    }
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseZRSSpirits(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+            const countries = ['EU', 'AUSTRIA', 'FRANCE', 'ITALY', 'SPAIN', 'USA', 'MEXICO', 'JAPAN'];
+
+            let currentCountry = '';
+            let currentRegion = '';
+            let currentProducer = '';
+            const cleanData = [];
+
+            for (let i = 6; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';
+                const col1 = row[1] ? String(row[1]).trim() : '';
+                const col2 = row[2] ? String(row[2]).trim() : '';
+                const col3 = row[3] || '';
+                const col4 = row[4] || '';
+
+                // Skip empty rows
+                if (!col0) continue;
+
+                // Check for country
+                if (countries.includes(col0)) {
+                    currentCountry = col0;
+                    currentRegion = '';
+                    currentProducer = '';
+                    continue;
+                }
+
+                // Check for region/producer header (no SKU pattern, no bottle count)
+                if (!col0.startsWith('ZR') && !col2) {
+                    if (col0.toUpperCase() === col0 && col0.length < 40) {
+                        currentRegion = col0;
+                        currentProducer = '';
+                    } else {
+                        currentProducer = col0;
+                    }
+                    continue;
+                }
+
+                // Check if product row
+                const isProduct = (col0.startsWith('ZR') || col0.startsWith('ZRS-')) && col1;
+
+                if (isProduct) {
+                    const productType = 'Spirits';
+                    const description = col1;
+
+                    // Extract vintage
+                    const vintageMatch = description.match(/\b(19|20)\d{2}\b/);
+                    const vintage = vintageMatch ? vintageMatch[0] : 'NV';
+
+                    // Determine spirit type
+                    const descLower = description.toLowerCase();
+                    let spiritType = 'Spirit';
+                    
+                    if (/vermouth|wermut/i.test(descLower)) {
+                        spiritType = 'Vermouth';
+                    } else if (/gin/i.test(descLower)) {
+                        spiritType = 'Gin';
+                    } else if (/vodka|wodka/i.test(descLower)) {
+                        spiritType = 'Vodka';
+                    } else if (/calvados/i.test(descLower)) {
+                        spiritType = 'Calvados';
+                    } else if (/rum/i.test(descLower)) {
+                        spiritType = 'Rum';
+                    } else if (/whisky|whiskey/i.test(descLower)) {
+                        spiritType = 'Whiskey';
+                    } else if (/liqueur/i.test(descLower)) {
+                        spiritType = 'Liqueur';
+                    } else if (/bitter|fernet/i.test(descLower)) {
+                        spiritType = 'Bitters/Amaro';
+                    } else if (/brandy|eau de vie/i.test(descLower)) {
+                        spiritType = 'Brandy/Eau de Vie';
+                    } else if (/mezcal/i.test(descLower)) {
+                        spiritType = 'Mezcal';
+                    } else if (/tequila/i.test(descLower)) {
+                        spiritType = 'Tequila';
+                    } else if (/aperitif/i.test(descLower)) {
+                        spiritType = 'Aperitif';
+                    }
+
+                    cleanData.push({
+                        'Product Type': productType,
+                        'Spirit Type': spiritType,
+                        'Country': currentCountry,
+                        'Region': currentRegion,
+                        'Producer': currentProducer,
+                        'SKU': col0,
+                        'Product Name': description,
+                        'Vintage': vintage,
+                        'Case Size': col2 || 6,
+                        'Bottle Size (ml)': col3 || 750,
+                        'Price': col4,
+                        'Stock Status': 'In Stock'
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseBowler(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+            const countries = ['AUSTRIA', 'FRANCE', 'ITALY', 'SPAIN', 'PORTUGAL', 'GERMANY', 
+                             'GREECE', 'SWITZERLAND', 'CROATIA', 'SLOVENIA', 'HUNGARY', 
+                             'SLOVAKIA', 'USA', 'ARGENTINA', 'CHILE', 'AUSTRALIA', 'NEW ZEALAND',
+                             'SOUTH AFRICA', 'CANADA', 'MEXICO'];
+
+            let currentCountry = '';
+            let currentRegion = '';
+            let currentProductType = 'Wine'; // Default to Wine
+            const cleanData = [];
+
+            for (let i = 1; i < rawData.length; i++) { // Skip header row
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';
+                const col1 = row[1] ? String(row[1]).trim() : '';
+                const col2 = row[2] ? String(row[2]).trim() : '';
+                const col3 = row[3] ? String(row[3]).trim() : '';
+
+                // Check for major product type sections
+                if (col0.toUpperCase() === 'SPIRITS') {
+                    currentProductType = 'Spirits';
+                    continue;
+                } else if (/NON-ALC|NONALC/i.test(col0)) {
+                    currentProductType = 'Non-Alcoholic';
+                    continue;
+                }
+
+                // Check if this is a product row (has SKU starting with DB)
+                const isProduct = col1.startsWith('DB') && col2;
+
+                if (isProduct) {
+                    // Extract bottle size from UOM column
+                    const uom = row[5] ? String(row[5]) : '';
+                    let bottleSizeML = null;
+                    
+                    if (uom.includes('ml')) {
+                        const match = uom.match(/(\d+)ml/);
+                        if (match) bottleSizeML = parseInt(match[1]);
+                    } else if (uom.includes('1L')) {
+                        bottleSizeML = 1000;
+                    } else if (uom.includes('1.5L')) {
+                        bottleSizeML = 1500;
+                    }
+
+                    // Extract case size
+                    let caseSize = null;
+                    const caseMatch = uom.match(/(\d+)\//);
+                    if (caseMatch) caseSize = parseInt(caseMatch[1]);
+
+                    // Get grape variety
+                    const grape = row[15] ? String(row[15]).trim() : '';
+
+                    // Get prices
+                    const bottlePrice = row[6] || '';
+                    const casePrice = row[7] || '';
+
+                    // Get vintage
+                    const vintage = row[4] ? String(row[4]) : '';
+
+                    // Check notes for stock status
+                    const notes = row[10] ? String(row[10]).toLowerCase() : '';
+                    const stockStatus = (notes.includes('sold out') || notes.includes('oos')) 
+                        ? 'Out of Stock' 
+                        : 'In Stock';
+
+                    cleanData.push({
+                        'Product Type': currentProductType,
+                        'Country': currentCountry,
+                        'Region': currentRegion,
+                        'Producer': col2,
+                        'SKU': col1,
+                        'Product Name': col3,
+                        'Grapes/Variety': grape,
+                        'Vintage': vintage,
+                        'Case Size': caseSize || '',
+                        'Bottle Size (ml)': bottleSizeML || '',
+                        'Bottle Price': bottlePrice,
+                        'Case Price': casePrice,
+                        'Certifications': col0,
+                        'Notes': row[10] || '',
+                        'Stock Status': stockStatus
+                    });
+                } else if (col0 && !col1 && !col2) {
+                    // This is a header row (country or region)
+                    const headerText = col0.trim();
+                    
+                    if (countries.includes(headerText)) {
+                        currentCountry = headerText;
+                        currentRegion = '';
+                    } else if (headerText && headerText !== 'nan' && headerText !== 'SPIRITS') {
+                        currentRegion = headerText;
+                    }
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseVina(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+            const countries = ['ARGENTINA', 'CHILE', 'URUGUAY', 'PORTUGAL', 'SPAIN'];
+            const regions = ['Colchagua Valley', 'Itata Valley'];
+            const producers = ['LITRONA', 'LA LATA', 'FINCA SUAREZ', 'RICCITELLI', 'VILLALOBOS', 
+                             'ESTACION YUMBEL', 'GUSTAVO MARTINEZ', 'PROYECTO NAKKAL', 
+                             'QUINTA DA RAZA', 'BODEGAS ALONSO', 'BODEGAS CAUZON', 'DIATOMISTS',
+                             'DOMINIO DE LAS ANIMAS', 'MAYETERIA SANLUQUENA', 'RAÚL MORENO',
+                             'VINIFÍCATE', 'ULIBARRI ARTZAIAK', 'VERONICA ORTEGA', 'ESENCIA RURAL',
+                             'MICROBIO WINES', 'FELIX CALLEJO', 'AREA PEQUEÑA', 'COMPAÑON ARRIETA',
+                             'FINCA DE LA RICA', 'TRONADO WINES', 'VIÑA ILUSION', 'KIKO CALVO',
+                             'AMOR PER LA TERRA', 'CAN RAFOLS DELS CAUS', 'CUEVA NUEVA', 'CAN-VI',
+                             'CELLER JAN VIDAL', 'CHRISTIAN BARBIER', 'CLOS LENTISCUS', 
+                             'COSMIC VINYATERS', 'FINCA PARERA', 'JOAN RUBIO', 'PARTIDA CREUS',
+                             'VINESTAR', 'VINYES TORTUGA', 'VIA DE LA PLATA', 'ALTOS DE MONTANCHEZ',
+                             'ADEGA ENTRE CANTOS', 'ADEGA OS RIOS', 'BODEGAS ALBAMAR', 
+                             'DESTINOS CRUZADOS', 'PENTECOSTES'];
+
+            let currentCountry = '';
+            let currentRegion = '';
+            let currentProducer = '';
+            const cleanData = [];
+
+            for (let i = 15; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';
+                const col1 = row[1] ? String(row[1]).trim() : '';
+                const col2 = row[2] ? String(row[2]).trim() : '';
+                const col3 = row[3] || '';
+
+                if (!col0) continue;
+
+                // Check for country
+                if (countries.includes(col0)) {
+                    currentCountry = col0;
+                    currentRegion = '';
+                    currentProducer = '';
+                    continue;
+                }
+
+                // Check for region
+                if (regions.includes(col0)) {
+                    currentRegion = col0;
+                    currentProducer = '';
+                    continue;
+                }
+
+                // Check for producer
+                if (col0.toUpperCase() === col0 && !col1 && !col3) {
+                    if (producers.includes(col0) || (col0.length < 40 && col0 !== 'ORGANIC')) {
+                        currentProducer = col0;
+                    }
+                    continue;
+                }
+
+                // Check if product row
+                const isProduct = col1 && col3 && col0.toUpperCase() !== col0;
+
+                if (isProduct) {
+                    // Detect product type
+                    const productNameLower = col0.toLowerCase();
+                    let productType = 'Wine';
+                    
+                    if (/vermouth|gin|vodka|whisky|whiskey|rum|brandy|cognac|sherry|spritz/i.test(productNameLower)) {
+                        productType = 'Spirits';
+                    } else if (/non-alc|nonalc|non alcoholic|alcohol-free/i.test(productNameLower)) {
+                        productType = 'Non-Alcoholic';
+                    }
+
+                    // Extract bottle size
+                    const uom = col2 || '';
+                    let bottleSizeML = null;
+                    let caseSize = null;
+
+                    if (uom.includes('ml')) {
+                        const match = uom.match(/(\d+)ml/);
+                        if (match) bottleSizeML = parseInt(match[1]);
+                    } else if (uom.includes('1L')) {
+                        bottleSizeML = 1000;
+                    } else if (uom.includes('1.5L')) {
+                        bottleSizeML = 1500;
+                    }
+
+                    const caseMatch = uom.match(/(\d+)\//);
+                    if (caseMatch) caseSize = parseInt(caseMatch[1]);
+
+                    // Get grapes from next row
+                    let grapes = '';
+                    if (i + 1 < rawData.length) {
+                        const nextRow = rawData[i + 1];
+                        const nextCol0 = nextRow[0] ? String(nextRow[0]).trim() : '';
+                        const nextCol1 = nextRow[1] ? String(nextRow[1]).trim() : '';
+                        if (nextCol0 && !nextCol1 && nextCol0.toUpperCase() !== nextCol0) {
+                            grapes = nextCol0;
+                        }
+                    }
+
+                    // Check stock status
+                    const notes = col0.toLowerCase();
+                    const stockStatus = (notes.includes('coming soon') || notes.includes('sold out')) 
+                        ? 'Out of Stock' 
+                        : 'In Stock';
+
+                    cleanData.push({
+                        'Product Type': productType,
+                        'Country': currentCountry,
+                        'Region': currentRegion,
+                        'Producer': currentProducer,
+                        'Product Name': col0,
+                        'Grapes/Variety': grapes,
+                        'Vintage': col1,
+                        'Case Size': caseSize || '',
+                        'Bottle Size (ml)': bottleSizeML || '',
+                        'Case Price': col3,
+                        'Stock Status': stockStatus
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseVinum(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+            const countries = ['SLOVENIA', 'CROATIA', 'SERBIA'];
+            const regions = ['ŠTAJERSKA', 'GORIŠKA BRDA', 'VIPAVA VALLEY', 'ISTRIA'];
+
+            let currentCountry = '';
+            let currentRegion = '';
+            let currentProducer = '';
+            const cleanData = [];
+
+            for (let i = 5; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';
+                const col1 = row[1] ? String(row[1]).trim() : '';
+                const col2 = row[2] ? String(row[2]).trim() : '';
+                const col3 = row[3] ? String(row[3]).trim() : '';
+                const col4 = row[4] ? String(row[4]).trim() : '';
+                const col5 = row[5] ? String(row[5]).trim() : '';
+                const col6 = row[6] || '';
+                const col7 = row[7] || '';
+
+                // Skip empty rows
+                if (!col0 && !col1 && !col2) continue;
+
+                // Check for country
+                if (countries.includes(col0)) {
+                    currentCountry = col0;
+                    currentRegion = '';
+                    currentProducer = '';
+                    continue;
+                }
+
+                // Check for region (in col1, uppercase)
+                if (col1 && col1.toUpperCase() === col1 && regions.includes(col1)) {
+                    currentRegion = col1;
+                    currentProducer = '';
+                    continue;
+                }
+
+                // Check for producer (in col1, has text but no wine in col2)
+                if (col1 && !col2 && !col3) {
+                    currentProducer = col1;
+                    continue;
+                }
+
+                // Check if product row (has wine name and item code)
+                const isProduct = col2 && col4;
+
+                if (isProduct) {
+                    // Detect product type
+                    const typeLower = col5.toLowerCase();
+                    let productType = 'Wine';
+                    
+                    if (/vermouth|gin|vodka|spirits/i.test(typeLower)) {
+                        productType = 'Spirits';
+                    } else if (/non-alc|nonalc/i.test(typeLower)) {
+                        productType = 'Non-Alcoholic';
+                    }
+
+                    // Parse bottle size
+                    const wineName = col2;
+                    let bottleSizeML = 750; // Default
+                    
+                    if (/375ml|375mL/i.test(wineName)) {
+                        bottleSizeML = 375;
+                    } else if (/1L/i.test(wineName)) {
+                        bottleSizeML = 1000;
+                    } else if (/1\.5L/i.test(wineName)) {
+                        bottleSizeML = 1500;
+                    }
+
+                    // Parse case size
+                    let caseSize = 12; // Default
+                    const caseMatch = wineName.match(/(\d+)x\d+mL/);
+                    if (caseMatch) {
+                        caseSize = parseInt(caseMatch[1]);
+                    }
+
+                    // Extract price
+                    const priceStr = String(col6);
+                    const priceMatch = priceStr.match(/(\d+)/);
+                    const price = priceMatch ? parseInt(priceMatch[1]) : col6;
+
+                    // Extract vintage
+                    const vintageMatch = wineName.match(/\b(19|20)\d{2}\b/);
+                    const vintage = vintageMatch ? vintageMatch[0] : 'NV';
+
+                    cleanData.push({
+                        'Product Type': productType,
+                        'Country': currentCountry,
+                        'Region': currentRegion,
+                        'Producer': currentProducer,
+                        'SKU': col4,
+                        'Product Name': wineName,
+                        'Grapes/Variety': col3,
+                        'Wine Type': col5,
+                        'Vintage': vintage,
+                        'Case Size': caseSize,
+                        'Bottle Size (ml)': bottleSizeML,
+                        'Case Price': price,
+                        'Bottle Price': col7,
+                        'Stock Status': 'In Stock'
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseDressner(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+            const countries = ['CHILE', 'GERMANY', 'FRANCE', 'ITALY', 'SLOVENIA', 'PORTUGAL'];
+
+            let currentCountry = '';
+            let currentRegion = '';
+            let currentProducer = '';
+            const cleanData = [];
+
+            for (let i = 9; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';
+                const col1 = row[1] ? String(row[1]).trim() : '';
+                const col5 = row[5] ? String(row[5]).trim() : '';
+                const col8 = row[8] ? String(row[8]).trim() : '';
+                const col10 = row[10] || 0;
+
+                // Skip empty rows
+                if (!col0 && !col1 && !col5) continue;
+
+                // Check for country (in col5)
+                if (countries.includes(col5)) {
+                    currentCountry = col5;
+                    currentRegion = '';
+                    currentProducer = '';
+                    continue;
+                }
+
+                // Check for region (in col1, uppercase, not a product)
+                if (col1 && col1.toUpperCase() === col1 && !col0.startsWith('LD')) {
+                    currentRegion = col1;
+                    currentProducer = '';
+                    continue;
+                }
+
+                // Check for producer (has comma, in col0, not SKU)
+                if (col0 && !col0.startsWith('LD') && col0.includes(',')) {
+                    currentProducer = col0;
+                    continue;
+                }
+
+                // Check if product row
+                const isProduct = col0.startsWith('LD') && col1;
+
+                if (isProduct) {
+                    const productDesc = col1;
+
+                    // Extract vintage
+                    const vintageMatch = productDesc.match(/\((\d{4}|NV)\)/);
+                    const vintage = vintageMatch ? vintageMatch[1] : 'NV';
+
+                    // Extract case size and bottle size
+                    const sizeMatch = productDesc.match(/(\d+)\/(\d+)(ml|L)/);
+                    let caseSize = 12;
+                    let bottleSizeML = 750;
+
+                    if (sizeMatch) {
+                        caseSize = parseInt(sizeMatch[1]);
+                        const bottleSize = sizeMatch[2];
+                        const unit = sizeMatch[3];
+                        bottleSizeML = unit === 'L' ? parseInt(bottleSize) * 1000 : parseInt(bottleSize);
+                    }
+
+                    // Clean product name
+                    const productName = productDesc.replace(/\d+\/\d+(ml|L).*$/, '').trim();
+
+                    // Parse price
+                    const priceMatch = col8.match(/\$([0-9.]+)/);
+                    const price = priceMatch ? parseFloat(priceMatch[1]) : '';
+
+                    // Stock status
+                    const inventory = parseFloat(col10) || 0;
+                    const stockStatus = inventory > 0 ? 'In Stock' : 'Out of Stock';
+
+                    // Product type
+                    const descLower = productDesc.toLowerCase();
+                    let productType = 'Wine';
+                    
+                    if (/porto|port|vermouth/i.test(descLower)) {
+                        productType = 'Spirits';
+                    } else if (/cider|cidre/i.test(descLower)) {
+                        productType = 'Cider';
+                    }
+
+                    cleanData.push({
+                        'Product Type': productType,
+                        'Country': currentCountry,
+                        'Region': currentRegion,
+                        'Producer': currentProducer,
+                        'SKU': col0,
+                        'Product Name': productName,
+                        'Vintage': vintage,
+                        'Case Size': caseSize,
+                        'Bottle Size (ml)': bottleSizeML,
+                        'Case Price': price,
+                        'Inventory': inventory,
+                        'Stock Status': stockStatus
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseBonVivant(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+            const countries = ['SPAIN', 'FRANCE', 'ITALY', 'PORTUGAL', 'AUSTRIA', 'GERMANY', 'CHILE', 'ARGENTINA', 'SLOVENIA'];
+
+            // Producer to country mapping for corrections
+            const producerCountryMap = {
+                'Stekar': 'SLOVENIA',
+                'Casa de Darei': 'SPAIN'
+            };
+
+            let currentCountry = '';
+            let currentRegion = '';
+            const cleanData = [];
+
+            for (let i = 4; i < rawData.length; i++) { // Start after header (row 3)
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';  // SKU
+                const col1 = row[1] ? String(row[1]).trim() : '';  // Producer
+                const col2 = row[2] ? String(row[2]).trim() : '';  // Wine
+                const col3 = row[3] ? String(row[3]).trim() : '';  // Region
+                const col4 = row[4] ? String(row[4]).trim() : '';  // Type
+                const col5 = row[5] ? String(row[5]).trim() : '';  // Size
+                const col6 = row[6] || '';  // Case Pack
+                const col8 = row[8] || 0;  // FOB
+                const col9 = row[9] || 0;  // TARIF(F'D) FOB
+                const col10 = row[10] ? String(row[10]).trim() : '';  // Notes
+
+                // Skip empty rows
+                if (!col0 && !col2) continue;
+
+                // Check for country header
+                if (!col0 && !col1 && countries.includes(col2)) {
+                    currentCountry = col2;
+                    currentRegion = '';
+                    continue;
+                }
+
+                // Check for region header (uppercase, no SKU)
+                if (!col0 && !col1 && col2 && col2.toUpperCase() === col2) {
+                    currentRegion = col2;
+                    continue;
+                }
+
+                // Check if product row (has SKU)
+                const isProduct = col0 && col0 !== ' ' && col2;
+
+                if (isProduct) {
+                    const productName = col2;
+
+                    // Extract vintage
+                    const vintageMatch = productName.match(/\b(19|20)\d{2}\b/);
+                    const vintage = vintageMatch ? vintageMatch[0] : 'NV';
+
+                    // Parse case size and bottle size from product name
+                    const caseMatch = productName.match(/\((\d+)\/(\d+)(ml|L)\)/);
+                    let caseSize = 12;
+                    let bottleSizeML = 750;
+
+                    if (caseMatch) {
+                        caseSize = parseInt(caseMatch[1]);
+                        const bottleSize = caseMatch[2];
+                        const unit = caseMatch[3];
+                        bottleSizeML = unit === 'L' ? parseInt(bottleSize) * 1000 : parseInt(bottleSize);
+                    } else if (col5.includes('ml')) {
+                        const sizeMatch = col5.match(/(\d+)/);
+                        if (sizeMatch) bottleSizeML = parseInt(sizeMatch[1]);
+                        caseSize = col6 || 12;
+                    }
+
+                    // Clean product name
+                    const cleanProductName = productName.replace(/\s*\(\d+\/\d+(ml|L)\)$/, '');
+
+                    // Calculate pricing - use higher of FOB or TARIF(F'D) FOB
+                    let fobPrice = 0;
+                    let tariffPrice = 0;
+
+                    try {
+                        fobPrice = (col8 && col8 !== '-') ? parseFloat(col8) : 0;
+                    } catch (e) {
+                        fobPrice = 0;
+                    }
+
+                    try {
+                        tariffPrice = (col9 && col9 !== '-') ? parseFloat(col9) : 0;
+                    } catch (e) {
+                        tariffPrice = 0;
+                    }
+
+                    const caseFOB = Math.max(fobPrice, tariffPrice);
+
+                    // Product type
+                    const typeLower = col4.toLowerCase();
+                    let productType = 'Wine';
+                    
+                    if (/spirit|liqueur/i.test(typeLower)) {
+                        productType = 'Spirits';
+                    } else if (/cider/i.test(typeLower)) {
+                        productType = 'Cider';
+                    }
+
+                    // Note: Hyperlinks cannot be extracted from XLSX.js library
+                    const productLink = ''; // Would need Python/openpyxl to extract
+
+                    // Override country if producer is in the correction map
+                    const assignedCountry = producerCountryMap[col1] || currentCountry;
+
+                    cleanData.push({
+                        'Product Type': productType,
+                        'Country': assignedCountry,
+                        'Region': currentRegion || col3,
+                        'Producer': col1,
+                        'SKU': col0,
+                        'Product Name': cleanProductName,
+                        'Wine Type': col4,
+                        'Vintage': vintage,
+                        'Case Size': caseSize,
+                        'Bottle Size (ml)': bottleSizeML,
+                        'Case FOB': caseFOB,
+                        'Notes': col10,
+                        'Product Link': productLink,
+                        'Stock Status': 'In Stock'
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseIndigenous(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+            let currentProducer = '';
+            let currentRegion = '';
+            const cleanData = [];
+
+            for (let i = 10; i < rawData.length; i++) { // Start after header (row 9)
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';  // Item Code
+                const col1 = row[1] ? String(row[1]).trim() : '';  // Description
+                const col2 = row[2] || '';  // Pack
+                const col3 = row[3] || '';  // Size
+                const col4 = row[4] || 0;   // DI FOB (CS)
+                const col6 = row[6] || 0;   // NJ FOB (CS)
+                const col7 = row[7] || '';  // QTY DEAL (CS)
+                const col8 = row[8] || '';  // MIN QTY (CS)
+                const col9 = row[9] ? String(row[9]).trim() : '';  // Current Offer
+
+                // Skip empty rows
+                if (!col0 && !col1) continue;
+
+                // Check for producer-region header (has " - " and no pack size)
+                if (col0 && col0.includes(' - ') && !col2) {
+                    const parts = col0.split(' - ');
+                    if (parts.length === 2) {
+                        currentProducer = parts[0].trim();
+                        currentRegion = parts[1].trim();
+                    }
+                    continue;
+                }
+
+                // Check if product row (has item code and description and pack)
+                const isProduct = col0 && col1 && col2;
+
+                if (isProduct) {
+                    // Extract vintage
+                    const vintageMatch = col1.match(/\b(19|20)\d{2}\b/);
+                    const vintage = vintageMatch ? vintageMatch[0] : 'NV';
+
+                    // Get bottle size and case size
+                    const bottleSizeML = col3 || 750;
+                    const caseSize = col2 || 12;
+
+                    // Get pricing - use higher of DI FOB or NJ FOB
+                    let diFOB = 0;
+                    let njFOB = 0;
+
+                    try {
+                        diFOB = col4 ? parseFloat(col4) : 0;
+                    } catch (e) {
+                        diFOB = 0;
+                    }
+
+                    try {
+                        njFOB = col6 ? parseFloat(col6) : 0;
+                    } catch (e) {
+                        njFOB = 0;
+                    }
+
+                    const caseFOB = Math.max(diFOB, njFOB);
+
+                    // Check stock status
+                    const stockStatus = (col1.toUpperCase().includes('SOLD OUT') || 
+                                        col9.toUpperCase().includes('SOLD OUT')) 
+                        ? 'Out of Stock' 
+                        : 'In Stock';
+
+                    cleanData.push({
+                        'Product Type': 'Wine',
+                        'Country': 'ITALY',
+                        'Region': currentRegion,
+                        'Producer': currentProducer,
+                        'SKU': col0,
+                        'Product Name': col1,
+                        'Vintage': vintage,
+                        'Case Size': caseSize,
+                        'Bottle Size (ml)': bottleSizeML,
+                        'DI FOB': diFOB || '',
+                        'NJ FOB': njFOB || '',
+                        'Case FOB': caseFOB || '',
+                        'QTY Deal': col7,
+                        'Min QTY': col8,
+                        'Notes': col9,
+                        'Stock Status': stockStatus
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseSkurnik(workbook) {
+            const sheetNames = workbook.SheetNames;
+            const countries = ['Argentina', 'Austria', 'Chile', 'France', 'Germany', 'Greece', 'Italy', 
+                             'New Zealand', 'Portugal', 'Spain', 'South Africa', 'USA', 'United States', 'Israel'];
+
+            let allData = [];
+
+            // Parse Wines sheet (or first sheet if name doesn't match)
+            const wineSheetName = sheetNames.find(name => name.toLowerCase().includes('wine')) || sheetNames[0];
+            if (wineSheetName) {
+                const winesData = parseSkurnikSheet(workbook.Sheets[wineSheetName], countries, 'Wine', true);
+                allData = allData.concat(winesData);
+            }
+
+            // Parse Spirits sheet if it exists
+            const spiritSheetName = sheetNames.find(name => name.toLowerCase().includes('spirit'));
+            if (spiritSheetName) {
+                const spiritsData = parseSkurnikSheet(workbook.Sheets[spiritSheetName], countries, 'Spirits', false);
+                allData = allData.concat(spiritsData);
+            }
+
+            return allData;
+        }
+
+        function parseSkurnikSheet(sheet, countries, productType, hasPortfolio) {
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+            let currentCountry = '';
+            const cleanData = [];
+
+            for (let i = 1; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                
+                // Parse columns based on whether sheet has Portfolio column (Wines) or not (Spirits)
+                let col0, portfolio, producer, itemDesc, vintage, bottleML, casePk, availability, eta, price1cs, price15cs;
+                
+                if (hasPortfolio) {
+                    // Wines sheet format
+                    col0 = row[0] ? String(row[0]).trim() : '';
+                    portfolio = row[1] ? String(row[1]).trim() : '';
+                    producer = row[3] ? String(row[3]).trim() : '';
+                    itemDesc = row[4] ? String(row[4]).trim() : '';
+                    vintage = row[5] ? String(row[5]).trim() : '';
+                    bottleML = row[6] || '';
+                    casePk = row[7] || '';
+                    availability = row[8] ? String(row[8]).trim() : '';
+                    eta = row[9] || '';
+                    price1cs = row[10] || '';
+                    price15cs = row[11] || '';
+                } else {
+                    // Spirits sheet format (no Portfolio column)
+                    col0 = row[0] ? String(row[0]).trim() : '';
+                    portfolio = '';
+                    producer = row[2] ? String(row[2]).trim() : '';
+                    itemDesc = row[3] ? String(row[3]).trim() : '';
+                    vintage = row[4] ? String(row[4]).trim() : '';
+                    bottleML = row[5] || '';
+                    casePk = row[6] || '';
+                    availability = row[7] ? String(row[7]).trim() : '';
+                    eta = row[8] || '';
+                    price1cs = row[9] || '';
+                    price15cs = row[10] || '';
+                }
+
+                // Skip empty rows
+                if (!col0 && !producer && !itemDesc) continue;
+
+                // Check for country header
+                if (countries.includes(col0) && !producer) {
+                    currentCountry = col0;
+                    continue;
+                }
+
+                // Check if product row
+                const isProduct = col0 && itemDesc;
+
+                if (isProduct) {
+                    const vintageVal = vintage || 'NV';
+                    const bottleSizeML = bottleML || 750;
+                    const caseSize = casePk || 12;
+
+                    // Get pricing - ALWAYS use 1cs price (conservative pricing)
+                    let price = '';
+                    try {
+                        price = price1cs ? parseFloat(price1cs) : '';
+                    } catch (e) {
+                        price = '';
+                    }
+
+                    // Determine stock status
+                    let stockStatus = 'Check Availability';
+                    if (availability.includes('ON PO') && !availability.includes('cs')) {
+                        stockStatus = 'On Purchase Order';
+                    } else if (availability.toUpperCase().includes('OK')) {
+                        stockStatus = 'In Stock';
+                    } else if (availability && availability.includes('cs')) {
+                        stockStatus = 'In Stock';
+                    }
+
+                    cleanData.push({
+                        'Product Type': productType,
+                        'Country': currentCountry,
+                        'Producer': producer,
+                        'Portfolio': portfolio,
+                        'SKU': col0,
+                        'Product Name': itemDesc,
+                        'Vintage': vintageVal,
+                        'Case Size': caseSize,
+                        'Bottle Size (ml)': bottleSizeML,
+                        'FOBNJ 1cs': price1cs || '',
+                        'FOBNJ 15cs': price15cs || '',
+                        'Case FOB': price,
+                        'Availability': availability,
+                        'ETA': eta || '',
+                        'Stock Status': stockStatus
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseDNS(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+            const cleanData = [];
+
+            for (let i = 1; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';  // Category
+                const col1 = row[1] ? String(row[1]).trim() : '';  // SKU
+                const col2 = row[2] ? String(row[2]).trim() : '';  // Brand
+                const col3 = row[3] ? String(row[3]).trim() : '';  // ProductName
+                const col4 = row[4] ? String(row[4]).trim() : '';  // Location (warehouse)
+                const col5 = row[5] || '';  // Available (btls)
+                const col6 = row[6] ? String(row[6]).trim() : '';  // Unit
+                const col7 = row[7] || '';  // Pack Size
+                const col8 = row[8] || '';  // FOB Btl Price
+                const col9 = row[9] || '';  // DI Btl Price
+                const col10 = row[10] ? String(row[10]).trim() : '';  // Notes
+
+                // Skip empty rows or note-only rows
+                if (!col1 || !col2) continue;
+
+                // Extract vintage
+                const vintageMatch = col3.match(/\b(19|20)\d{2}\b/);
+                const vintage = vintageMatch ? vintageMatch[0] : 'NV';
+
+                // Parse bottle size
+                let bottleSizeML = 750;
+                if (col6.includes('ml')) {
+                    const mlMatch = col6.match(/(\d+)ml/);
+                    bottleSizeML = mlMatch ? parseInt(mlMatch[1]) : 750;
+                } else if (col6.includes('L')) {
+                    const lMatch = col6.match(/([0-9.]+)L/);
+                    bottleSizeML = lMatch ? parseInt(parseFloat(lMatch[1]) * 1000) : 750;
+                }
+
+                // Get case size
+                const caseSize = col7 || 12;
+
+                // Calculate case pricing from bottle pricing
+                let caseFOB = '';
+                let caseDI = '';
+
+                try {
+                    const fobBtl = col8 ? parseFloat(col8) : 0;
+                    caseFOB = fobBtl ? fobBtl * caseSize : '';
+                } catch (e) {
+                    caseFOB = '';
+                }
+
+                try {
+                    const diBtl = col9 ? parseFloat(col9) : 0;
+                    caseDI = diBtl ? diBtl * caseSize : '';
+                } catch (e) {
+                    caseDI = '';
+                }
+
+                // Determine product type from category
+                let productType = 'Wine';
+                if (col0.toLowerCase() === 'sparkling' || col0.toLowerCase() === 'dessert') {
+                    productType = col0.charAt(0).toUpperCase() + col0.slice(1).toLowerCase();
+                }
+
+                // Stock status
+                let stockStatus = 'Check Availability';
+                try {
+                    const availBtls = col5 ? parseInt(col5) : 0;
+                    stockStatus = availBtls > 0 ? 'In Stock' : 'Out of Stock';
+                } catch (e) {
+                    stockStatus = 'Check Availability';
+                }
+
+                cleanData.push({
+                    'Product Type': productType,
+                    'Category': col0,
+                    'Country': '',  // Not provided - needs manual entry
+                    'Region': '',  // Not provided - needs manual entry
+                    'Producer': col2,
+                    'SKU': col1,
+                    'Product Name': col3,
+                    'Vintage': vintage,
+                    'Case Size': caseSize,
+                    'Bottle Size (ml)': bottleSizeML,
+                    'Available (btls)': col5,
+                    'FOB Btl Price': col8,
+                    'FOB Case Price': caseFOB,
+                    'DI Btl Price': col9,
+                    'DI Case Price': caseDI,
+                    'Warehouse': col4,
+                    'Notes': col10,
+                    'Stock Status': stockStatus
+                });
+            }
+
+            return cleanData;
+        }
+
+        function parseValkyrie(workbook) {
+            const sheetNames = workbook.SheetNames;
+            let allData = [];
+
+            // Parse Valkyrie sheet (imported wines)
+            const valkSheetName = sheetNames.find(name => name.toLowerCase().includes('valk')) || sheetNames[0];
+            if (valkSheetName) {
+                const valkData = parseValkyrieImported(workbook.Sheets[valkSheetName]);
+                allData = allData.concat(valkData);
+            }
+
+            // Parse Domestic sheet if it exists
+            const domSheetName = sheetNames.find(name => name.toLowerCase().includes('dom'));
+            if (domSheetName) {
+                const domData = parseValkyrieDomestic(workbook.Sheets[domSheetName]);
+                allData = allData.concat(domData);
+            }
+
+            return allData;
+        }
+
+        function parseValkyrieImported(sheet) {
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+            const cleanData = [];
+            let currentCategory = '';
+            let currentCountry = '';
+
+            for (let i = 2; i < rawData.length; i++) { // Start after header rows
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';  // Producer/Category
+                const col1 = row[1] ? String(row[1]).trim() : '';  // Wine
+                const col2 = row[2] ? String(row[2]).trim() : '';  // Vintage
+                const col3 = row[3] ? String(row[3]).trim() : '';  // Press
+                const col4 = row[4] || '';  // Pack
+                const col6 = row[6] || '';  // FOB price
+                const col8 = row[8] || '';  // DI price
+
+                // Skip empty rows
+                if (!col0 && !col1) continue;
+
+                // Check for category headers (all caps, no wine name)
+                if (col0 && col0.toUpperCase() === col0 && !col1) {
+                    currentCategory = col0;
+                    // Try to extract country from category
+                    if (col0.includes('SPAIN')) {
+                        currentCountry = 'Spain';
+                    } else if (col0.includes('CHAMPAGNE')) {
+                        currentCountry = 'France';
+                    }
+                    continue;
+                }
+
+                // Check if product row (has wine name and pack)
+                const isProduct = col1 && col4;
+
+                if (isProduct) {
+                    // Extract producer and region from col0
+                    let producer = col0;
+                    let region = '';
+                    
+                    if (col0.includes('{') && col0.includes('}')) {
+                        const regionMatch = col0.match(/\{([^}]+)\}/);
+                        if (regionMatch) {
+                            region = regionMatch[1];
+                        }
+                        producer = col0.replace(/\s*\{[^}]+\}\*?/g, '').trim();
+                    }
+
+                    // Get vintage
+                    const vintage = (col2 && col2 !== 'nan') ? col2 : 'NV';
+
+                    // Get case size
+                    const caseSize = col4 || 12;
+
+                    // Determine bottle size
+                    let bottleSizeML = 750;
+                    if (col1.toLowerCase().includes('half bottle')) {
+                        bottleSizeML = 375;
+                    } else if (col1.toLowerCase().includes('magnum')) {
+                        bottleSizeML = 1500;
+                    }
+
+                    // Get pricing
+                    let fobPrice = '';
+                    let diPrice = '';
+
+                    try {
+                        fobPrice = col6 ? parseFloat(col6) : '';
+                    } catch (e) {
+                        fobPrice = '';
+                    }
+
+                    try {
+                        diPrice = (col8 && col8 !== '-') ? parseFloat(col8) : '';
+                    } catch (e) {
+                        diPrice = '';
+                    }
+
+                    // Determine product type
+                    let productType = 'Wine';
+                    if (currentCategory.includes('PETNAT') || currentCategory.includes('SPARKLING') || currentCategory.includes('CHAMPAGNE')) {
+                        productType = 'Sparkling';
+                    }
+
+                    // Determine country if not set
+                    if (!currentCountry) {
+                        if (region.includes('Spain') || region.includes('Cava') || region.includes('Penedès')) {
+                            currentCountry = 'Spain';
+                        } else if (producer.includes('Champagne') || currentCategory.includes('CHAMPAGNE')) {
+                            currentCountry = 'France';
+                        }
+                    }
+
+                    // Stock status
+                    const stockStatus = col1.toUpperCase().includes('CLOSEOUT') ? 'Out of Stock' : 'In Stock';
+
+                    cleanData.push({
+                        'Product Type': productType,
+                        'Country': currentCountry,
+                        'Region': region,
+                        'Producer': producer,
+                        'Product Name': col1,
+                        'Vintage': vintage,
+                        'Case Size': caseSize,
+                        'Bottle Size (ml)': bottleSizeML,
+                        'FOB Case Price': fobPrice,
+                        'DI Case Price': diPrice,
+                        'Press Scores': col3,
+                        'Category': currentCategory,
+                        'Stock Status': stockStatus
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseValkyrieDomestic(sheet) {
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+            const cleanData = [];
+            let currentProducer = '';
+            let currentRegion = '';
+
+            for (let i = 4; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';
+                const col1 = row[1] ? String(row[1]).trim() : '';
+                const col2 = row[2] ? String(row[2]).trim() : '';
+                const col3 = row[3] ? String(row[3]).trim() : '';
+                const col4 = row[4] || '';
+                const col6 = row[6] || '';
+                const col8 = row[8] || '';
+
+                // Skip empty rows
+                if (!col0 && !col1) continue;
+
+                // Check for producer/region headers (all caps, no wine name)
+                if (col0 && col0.toUpperCase() === col0 && !col1) {
+                    const parts = col0.split(' - ');
+                    if (parts.length === 2) {
+                        currentProducer = parts[0].trim();
+                        currentRegion = parts[1].trim();
+                    } else {
+                        currentProducer = col0;
+                    }
+                    continue;
+                }
+
+                // Product row
+                if (col1 && col4) {
+                    const producer = col0 || currentProducer;
+                    const vintage = (col2 && col2 !== 'nan') ? col2 : 'NV';
+                    const caseSize = col4 || 12;
+
+                    let fobPrice = '';
+                    try {
+                        fobPrice = col6 ? parseFloat(col6) : '';
+                    } catch (e) {
+                        fobPrice = '';
+                    }
+
+                    const stockStatus = col1.toUpperCase().includes('CLOSEOUT') ? 'Out of Stock' : 'In Stock';
+
+                    cleanData.push({
+                        'Product Type': 'Wine',
+                        'Country': 'USA',
+                        'Region': currentRegion,
+                        'Producer': producer,
+                        'Product Name': col1,
+                        'Vintage': vintage,
+                        'Case Size': caseSize,
+                        'Bottle Size (ml)': 750,
+                        'FOB Case Price': fobPrice,
+                        'DI Case Price': '',
+                        'Press Scores': col3,
+                        'Category': 'Domestic',
+                        'Stock Status': stockStatus
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseDiamond(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+            const cleanData = [];
+
+            for (let i = 1; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';  // SKU
+                const col1 = row[1] ? String(row[1]).trim() : '';  // Year
+                const col2 = row[2] ? String(row[2]).trim() : '';  // Name
+                const col3 = row[3] ? String(row[3]).trim() : '';  // Size
+                const col4 = row[4] || 0;  // Bottles Available
+                const col5 = row[5] || 0;  // Cases Available
+                const col6 = row[6] || 0;  // Bottles On Water
+                const col7 = row[7] || 0;  // Cases on Water
+                const col8 = row[8] || '';  // Price/btl
+                const col9 = row[9] || '';  // Price/Cs
+                const col10 = row[10] ? String(row[10]).trim() : '';  // PackSize
+
+                // Skip empty rows
+                if (!col0 || !col2) continue;
+
+                // Extract producer from product name
+                // Format: "YYYY Producer Product Details Size"
+                const nameParts = col2.split(' ');
+                let producer = '';
+
+                if (nameParts.length >= 3) {
+                    // Wine terms that indicate end of producer name
+                    const wineTerms = ['estate', 'winery', 'vineyard', 'wines', 'assyrtiko', 'xinomavro', 'syrah', 
+                                     'merlot', 'vidiano', 'kotsifali', 'malagouzia', 'chardonnay', 'sauvignon',
+                                     'pinot', 'tannat', 'vinsanto', 'mavrodaphne', 'sparkling', 'ecosystem',
+                                     'rose', 'blanc', 'noir', 'muscat', 'malvasia', 'gewurztraminer'];
+
+                    // Try 3-word producer
+                    const potential3word = nameParts.slice(1, 4).join(' ');
+                    const potential2word = nameParts.slice(1, 3).join(' ');
+
+                    if (nameParts.length >= 4) {
+                        const fourthWord = nameParts[3].toLowerCase();
+                        if (wineTerms.includes(fourthWord) || potential3word.toLowerCase().includes('ecosystem')) {
+                            producer = potential2word;
+                        } else {
+                            const thirdWord = nameParts[2];
+                            if (thirdWord[0] === thirdWord[0].toUpperCase() && !wineTerms.includes(thirdWord.toLowerCase())) {
+                                producer = potential3word;
+                            } else {
+                                producer = potential2word;
+                            }
+                        }
+                    } else {
+                        producer = potential2word;
+                    }
+                } else if (nameParts.length >= 2) {
+                    producer = nameParts[1];
+                }
+
+                // Get vintage
+                const vintage = col1 || 'NV';
+
+                // Parse bottle size
+                const mlMatch = col3.match(/(\d+)\s*mL/);
+                const bottleSizeML = mlMatch ? parseInt(mlMatch[1]) : 750;
+
+                // Get case size
+                let caseSize = 12;
+                try {
+                    caseSize = col10 ? parseInt(parseFloat(col10)) : 12;
+                } catch (e) {
+                    caseSize = 12;
+                }
+
+                // Get pricing
+                let casePrice = '';
+                try {
+                    casePrice = col9 ? parseFloat(col9) : '';
+                } catch (e) {
+                    casePrice = '';
+                }
+
+                // Stock status
+                let stockStatus = 'Check Availability';
+                try {
+                    const bottlesAvail = parseInt(col4) || 0;
+                    const bottlesOnWater = parseInt(col6) || 0;
+
+                    if (bottlesAvail > 0) {
+                        stockStatus = 'In Stock';
+                    } else if (bottlesOnWater > 0) {
+                        stockStatus = 'On Water';
+                    } else {
+                        stockStatus = 'Out of Stock';
+                    }
+                } catch (e) {
+                    stockStatus = 'Check Availability';
+                }
+
+                cleanData.push({
+                    'Product Type': 'Wine',
+                    'Country': 'Greece',
+                    'Producer': producer,
+                    'SKU': col0,
+                    'Product Name': col2,
+                    'Vintage': vintage,
+                    'Case Size': caseSize,
+                    'Bottle Size (ml)': bottleSizeML,
+                    'Bottles Available': col4,
+                    'Cases Available': col5,
+                    'Bottles On Water': col6,
+                    'Cases On Water': col7,
+                    'Price per Bottle': col8,
+                    'Case Price': casePrice,
+                    'Stock Status': stockStatus
+                });
+            }
+
+            return cleanData;
+        }
+
+        function parseDiamondLibrary(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+            const cleanData = [];
+            let currentProducer = '';
+            let currentRegion = '';
+
+            for (let i = 2; i < rawData.length; i++) { // Start after title and first header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';  // Header/Yes/Space
+                const col1 = row[1] ? String(row[1]).trim() : '';  // Yes
+                const col2 = row[2] ? String(row[2]).trim() : '';  // Producer/Wine name
+                const col3 = row[3] || '';  // Vintage
+                const col4 = row[4] ? String(row[4]).trim() : '';  // Format
+                const col5 = row[5] || '';  // Case Price
+                const col6 = row[6] || '';  // Cases Offered
+                const col7 = row[7] ? String(row[7]).trim() : '';  // SKU
+
+                // Skip spacer rows
+                if (col0 === 'Space') continue;
+
+                // Check for producer/region header (Header = Yes and contains colon)
+                if (col0 === 'Header' && col2.includes(':')) {
+                    const parts = col2.split(':');
+                    currentProducer = parts[0].trim();
+                    currentRegion = parts.length > 1 ? parts[1].trim() : '';
+                    continue;
+                }
+
+                // Check if product row (has vintage and SKU)
+                const isProduct = col3 && col7;
+
+                if (isProduct) {
+                    // Get vintage
+                    let vintage = 'NV';
+                    try {
+                        vintage = col3 ? parseInt(col3) : 'NV';
+                    } catch (e) {
+                        vintage = 'NV';
+                    }
+
+                    // Parse format to get case size and bottle size
+                    // Format examples: "6/750mL", "12/750mL", "1/3L", "3/1.5L"
+                    let caseSize = 6;
+                    let bottleSizeML = 750;
+
+                    if (col4) {
+                        const formatMatch = col4.match(/(\d+)\/([\d.]+)(mL|L)/);
+                        if (formatMatch) {
+                            caseSize = parseInt(formatMatch[1]);
+                            const sizeNum = parseFloat(formatMatch[2]);
+                            const unit = formatMatch[3];
+
+                            if (unit === 'L') {
+                                bottleSizeML = parseInt(sizeNum * 1000);
+                            } else {
+                                bottleSizeML = parseInt(sizeNum);
+                            }
+                        }
+                    }
+
+                    // Get pricing
+                    let casePrice = '';
+                    try {
+                        casePrice = col5 ? parseFloat(col5) : '';
+                    } catch (e) {
+                        casePrice = '';
+                    }
+
+                    // Get cases offered
+                    let casesOffered = 0;
+                    try {
+                        casesOffered = col6 ? parseInt(col6) : 0;
+                    } catch (e) {
+                        casesOffered = 0;
+                    }
+
+                    cleanData.push({
+                        'Product Type': 'Wine',
+                        'Country': 'Greece',
+                        'Region': currentRegion,
+                        'Producer': currentProducer,
+                        'Product Name': col2,
+                        'SKU': col7,
+                        'Vintage': vintage,
+                        'Case Size': caseSize,
+                        'Bottle Size (ml)': bottleSizeML,
+                        'Format': col4,
+                        'Case Price': casePrice,
+                        'Cases Offered': casesOffered,
+                        'Stock Status': 'Pre-Sale',
+                        'Sale Type': 'Library/Pre-Sale'
+                    });
+                }
+            }
+
+            return cleanData;
+        }
+
+        function parseDallaTerra(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+            const cleanData = [];
+
+            for (let i = 1; i < rawData.length; i++) { // Start after header
+                const row = rawData[i];
+                const col0 = row[0] ? String(row[0]).trim() : '';  // Item Number
+                const col1 = row[1] ? String(row[1]).trim() : '';  // Item Description
+                const col2 = row[2] ? String(row[2]).trim() : '';  // Vintage
+                const col3 = row[3] ? String(row[3]).trim() : '';  // Size
+                const col4 = row[4] || '';  // Units (case size)
+                const col5 = row[5] || '';  // ABV
+                const col6 = row[6] || '';  // FOB IT-26
+                const col7 = row[7] || '';  // FOB NJ-26
+                const col8 = row[8] || '';  // SA
+                const col9 = row[9] || '';  // SRP
+                const col10 = row[10] ? String(row[10]).trim() : '';  // Item Notes
+                const col11 = row[11] ? String(row[11]).trim() : '';  // Next Vintage
+
+                // Skip empty rows
+                if (!col0 && !col1) continue;
+                if (!col1) continue;
+
+                // Extract producer from item description (first word(s))
+                let producer = '';
+                if (col1) {
+                    const parts = col1.split(' ');
+                    // Handle multi-word producers like "AIA VECCHIA", "ALOIS LAGEDER"
+                    if (parts.length >= 2 && parts[0] === parts[0].toUpperCase() && parts[1] === parts[1].toUpperCase()) {
+                        producer = `${parts[0]} ${parts[1]}`;
+                    } else if (parts.length >= 1) {
+                        producer = parts[0];
+                    }
+                }
+
+                // Get vintage
+                let vintage = col2 || 'NV';
+                if (vintage.includes('Non Vintage')) {
+                    vintage = 'NV';
+                }
+
+                // Parse bottle size and convert to ml - PROPERLY HANDLE ALL FORMATS
+                let bottleSizeML = 750;  // default
+                if (col3) {
+                    const sizeStr = col3.replace(/\s/g, '').toUpperCase();
+                    
+                    // Handle ML format
+                    if (sizeStr.includes('ML')) {
+                        const mlMatch = sizeStr.match(/(\d+)ML/);
+                        if (mlMatch) {
+                            bottleSizeML = parseInt(mlMatch[1]);
+                        }
+                    }
+                    // Handle L format (convert liters to ml)
+                    else if (sizeStr.includes('L')) {
+                        const lMatch = sizeStr.match(/([\d.]+)L/);
+                        if (lMatch) {
+                            const liters = parseFloat(lMatch[1]);
+                            bottleSizeML = parseInt(liters * 1000);
+                        }
+                    }
+                }
+
+                // Get case size
+                let caseSize = 12;
+                try {
+                    caseSize = col4 ? parseInt(col4) : 12;
+                } catch (e) {
+                    caseSize = 12;
+                }
+
+                // Get pricing - use NJ FOB
+                let casePrice = '';
+                try {
+                    casePrice = col7 ? parseFloat(col7) : '';
+                } catch (e) {
+                    casePrice = '';
+                }
+
+                // Get SRP
+                let srp = '';
+                try {
+                    srp = col9 ? parseFloat(col9) : '';
+                } catch (e) {
+                    srp = '';
+                }
+
+                // Determine stock status from notes
+                let stockStatus = 'In Stock';
+                const notesLower = col10.toLowerCase();
+                if (notesLower.includes('sold out')) {
+                    stockStatus = 'Sold Out';
+                } else if (notesLower.includes('end of vintage')) {
+                    stockStatus = 'Limited/EOV';
+                } else if (notesLower.includes('upcoming') || notesLower.includes('n/a')) {
+                    stockStatus = 'Coming Soon';
+                } else if (notesLower.includes('special order')) {
+                    stockStatus = 'Special Order';
+                }
+
+                cleanData.push({
+                    'Product Type': 'Wine',
+                    'Country': 'Italy',
+                    'Producer': producer,
+                    'SKU': col0,
+                    'Product Name': col1,
+                    'Vintage': vintage,
+                    'Case Size': caseSize,
+                    'Bottle Size (ml)': bottleSizeML,
+                    'ABV': col5,
+                    'FOB IT': col6,
+                    'FOB NJ': col7,
+                    'Case Price': casePrice,
+                    'SRP': srp,
+                    'Notes': col10,
+                    'Next Vintage': col11,
+                    'Stock Status': stockStatus
+                });
+            }
+
+            return cleanData;
+        }
+
+        function displayResults(data) {
+            const inStock = data.filter(d => d['Stock Status'] === 'In Stock').length;
+            const outOfStock = data.filter(d => d['Stock Status'] === 'Out of Stock').length;
+            const countries = [...new Set(data.map(d => d.Country).filter(c => c))].length;
+
+            results.innerHTML = `
+                <div class="status-message status-success">
+                    ✅ Successfully converted ${data.length} products
+                </div>
+                
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Products</div>
+                        <div class="stat-value">${data.length}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">In Stock</div>
+                        <div class="stat-value">${inStock}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Out of Stock</div>
+                        <div class="stat-value">${outOfStock}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Countries</div>
+                        <div class="stat-value">${countries}</div>
+                    </div>
+                </div>
+            `;
+            results.style.display = 'block';
+        }
+
+        function createDownloadButton(data) {
+            const existingBtn = document.getElementById('downloadBtn');
+            if (existingBtn) existingBtn.remove();
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            
+            const colWidths = [
+                { wch: 18 }, // Country
+                { wch: 22 }, // Region
+                { wch: 45 }, // Producer/Brand
+                { wch: 18 }, // SKU
+                { wch: 50 }, // Product Name
+                { wch: 45 }, // Grapes/Variety
+                { wch: 12 }, // Vintage
+                { wch: 12 }, // Case Size
+                { wch: 18 }, // Bottle Size (ml)
+                { wch: 12 }, // Price
+                { wch: 18 }  // Stock Status
+            ];
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Wine Inventory');
+
+            const downloadBtn = document.createElement('button');
+            downloadBtn.id = 'downloadBtn';
+            downloadBtn.className = 'btn btn-download';
+            downloadBtn.textContent = '⬇ Download Clean Spreadsheet';
+            downloadBtn.onclick = () => {
+                const timestamp = new Date().toISOString().split('T')[0];
+                XLSX.writeFile(wb, `Wine_Inventory_Clean_${timestamp}.xlsx`);
+            };
+
+            results.appendChild(downloadBtn);
+        }
+    </script>
+</body>
+</html>
